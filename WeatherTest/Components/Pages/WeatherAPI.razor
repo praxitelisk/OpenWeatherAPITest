@@ -1,0 +1,142 @@
+﻿@page "/weather-api"
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+
+@rendermode InteractiveServer
+
+<h3>Meteo Forecast</h3>
+
+<div class="mb-3">
+    <label>City:</label>
+    <input type="text" @bind="City" placeholder="Enter city" class="form-control w-50 mb-2" />
+
+    <label>Country Code:</label>
+    <input type="text" @bind="Country" placeholder="Enter country code (e.g., gr, uk, us)" class="form-control w-50 mb-2" />
+
+    <button @onclick="GetWeather" class="btn btn-primary mt-2">Get Forecast</button>
+</div>
+
+@if (WeatherData != null)
+{
+    <h5>Weather in @WeatherData.Name (@WeatherData.Sys.Country)</h5>
+    <table class="table">
+        <tr>
+            <th>Temperature</th>
+            <td>@WeatherData.Main.Temp °C</td>
+        </tr>
+        <tr>
+            <th>Feels Like</th>
+            <td>@WeatherData.Main.FeelsLike °C</td>
+        </tr>
+        <tr>
+            <th>Min Temperature</th>
+            <td>@WeatherData.Main.TempMin °C</td>
+        </tr>
+        <tr>
+            <th>Max Temperature</th>
+            <td>@WeatherData.Main.TempMax °C</td>
+        </tr>
+        <tr>
+            <th>Humidity</th>
+            <td>@WeatherData.Main.Humidity %</td>
+        </tr>
+        <tr>
+            <th>Wind Speed</th>
+            <td>@WeatherData.Wind.Speed m/s</td>
+        </tr>
+        <tr>
+            <th>Clouds</th>
+            <td>@WeatherData.Clouds.All %</td>
+        </tr>
+        <tr>
+            <th>Weather</th>
+            <td>@WeatherData.Weather.FirstOrDefault()?.Description</td>
+        </tr>
+    </table>
+}
+else if (ShowError)
+{
+    <h5>Error fetching weather data.</h5>
+}
+
+@code {
+    private string City = "Athens";
+    private string Country = "gr";
+    private WeatherResponse? WeatherData;
+    private bool ShowError = false;
+
+    private async Task GetWeather()
+    {
+        if (string.IsNullOrWhiteSpace(City) || string.IsNullOrWhiteSpace(Country))
+        {
+            ShowError = true;
+            return;
+        }
+
+        var apiKey = "e5c52d249a65e6c0d53747313881f356";
+        var url = $"https://api.openweathermap.org/data/2.5/weather?q={City},{Country}&appid={apiKey}&units=metric";
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient();
+            var response = await client.GetAsync(url);
+
+            if (response.IsSuccessStatusCode)
+            {
+                WeatherData = await response.Content.ReadFromJsonAsync<WeatherResponse>();
+                ShowError = false;
+            }
+            else
+            {
+                WeatherData = null;
+                ShowError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+            WeatherData = null;
+            ShowError = true;
+        }
+    }
+
+    // JSON Data Model
+    public class WeatherResponse
+    {
+        public MainInfo Main { get; set; } = new();
+        public WindInfo Wind { get; set; } = new();
+        public CloudInfo Clouds { get; set; } = new();
+        public SysInfo Sys { get; set; } = new();
+        public List<WeatherCondition> Weather { get; set; } = new();
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class MainInfo
+    {
+        public double Temp { get; set; }
+        public double FeelsLike { get; set; }
+        public double TempMin { get; set; }
+        public double TempMax { get; set; }
+        public int Humidity { get; set; }
+    }
+
+    public class WindInfo
+    {
+        public double Speed { get; set; }
+    }
+
+    public class CloudInfo
+    {
+        public int All { get; set; }
+    }
+
+    public class SysInfo
+    {
+        public string Country { get; set; }
+    }
+
+    public class WeatherCondition
+    {
+        public string Description { get; set; } = string.Empty;
+    }
+}
